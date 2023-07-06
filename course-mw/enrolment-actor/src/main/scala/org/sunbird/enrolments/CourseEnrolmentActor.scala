@@ -2,16 +2,14 @@ package org.sunbird.enrolments
 
 import akka.actor.ActorRef
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.mashape.unirest.http.HttpClientHelper.request
-import org.apache.commons.collections4.{CollectionUtils, MapUtils}
+import org.apache.commons.collections4.CollectionUtils
 import org.apache.commons.lang3.StringUtils
 import org.elasticsearch.search.sort.SortOrder
 import org.sunbird.cache.util.RedisCacheUtil
-import org.sunbird.cassandra.CassandraOperation
 import org.sunbird.common.CassandraUtil
 import org.sunbird.common.exception.ProjectCommonException
 import org.sunbird.common.models.response.Response
-import org.sunbird.common.models.util.ProjectUtil.{EnrolmentType, getConfigValue, isNotNull}
+import org.sunbird.common.models.util.ProjectUtil.{EnrolmentType, isNotNull}
 import org.sunbird.common.models.util._
 import org.sunbird.common.request.{Request, RequestContext}
 import org.sunbird.common.responsecode.ResponseCode
@@ -362,6 +360,25 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     }
     new ObjectMapper().writeValueAsString(searchRequest)
   }
+  def contentStateReadRequest(request: Request): String = {
+    logger.info(request.getRequestContext, "Inside the contentStateReadRequest")
+    val fields = Array(request.getRequest.getOrDefault(JsonKey.PROGRESS, "progress"),
+      request.getRequest.getOrDefault(JsonKey.ASSESSMENT_SCORE, "score")).toList
+
+    val searchRequest: java.util.Map[String, java.util.Map[String, AnyRef]] = new java.util.HashMap[String, java.util.Map[String, AnyRef]]() {
+      {
+        put(JsonKey.REQUEST, new java.util.HashMap[String, AnyRef]() {
+          {
+            put(JsonKey.FIELDS, fields)
+            put(JsonKey.USER_ID, request.getRequest.getOrDefault(JsonKey.USER_ID, ""))
+            put(JsonKey.COURSE_ID, request.getRequest.getOrDefault(JsonKey.COURSE_ID, ""))
+            put(JsonKey.BATCH_ID, request.getRequest.getOrDefault(JsonKey.BATCH_ID, ""))
+          }
+        })
+      }
+    }
+    new ObjectMapper().writeValueAsString(searchRequest)
+  }
 
   def addBatchDetails(enrolmentList: util.List[util.Map[String, AnyRef]], request: Request): util.List[util.Map[String, AnyRef]] = {
     val batchIds: java.util.List[String] = enrolmentList.map(e => e.getOrDefault(JsonKey.BATCH_ID, "").asInstanceOf[String]).distinct.filter(id => StringUtils.isNotBlank(id)).toList.asJava
@@ -679,6 +696,8 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
          val statusCode: Integer = request.getOrDefault(JsonKey.STATUS, 0).asInstanceOf[Integer]
          val nodalFeedback:util.Map[String,String]=new util.HashMap[String,String]()
          nodalFeedback.put(getUserRole(request.getContext.getOrDefault(JsonKey.REQUESTED_BY, "").asInstanceOf[String]),comment)
+         val requestBody = contentStateReadRequest(request)
+         val score: util.Map[String, AnyRef] = ContentSearchUtil.getScore(request.getRequestContext, requestBody, request.getContext.get(JsonKey.HEADER).asInstanceOf[java.util.Map[String, String]])
          (0 until (userIds.size())).foreach(x => {
            EvalDataAfterIssueCertificate(request, courseId, userIds, batchId, statusCode, nodalFeedback, x)
          })
@@ -686,8 +705,8 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     }
 
   private def EvalDataAfterIssueCertificate(request: Request, courseId: String, userIds: util.List[String], batchId: String, statusCode: Integer, nodalFeedback: util.Map[String, String], x: Int) = {
-    val enrolmentData: UserCourses = userCoursesDao.read(request.getRequestContext, userIds.get(x.toInt), courseId, batchId)
-    val batchUserData: BatchUser = batchUserDao.readById(request.getRequestContext, batchId, userIds.get(x))
+    val enrolmentData = userCoursesDao.read(request.getRequestContext, userIds.get(x.toInt), courseId, batchId)
+    val batchUserData = batchUserDao.readById(request.getRequestContext, batchId, userIds.get(x))
     logger.info(null, "existing comment" + enrolmentData.getComment)
     if ((enrolmentData.getComment != null && !enrolmentData.getComment.isEmpty) || (batchUserData.getComment != null && !batchUserData.getComment.isEmpty)) {
       logger.info(null, "comment: " + enrolmentData.getComment)

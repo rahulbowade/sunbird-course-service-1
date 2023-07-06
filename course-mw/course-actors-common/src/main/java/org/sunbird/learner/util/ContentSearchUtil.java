@@ -56,6 +56,12 @@ public class ContentSearchUtil {
     headerMap.put(JsonKey.COOKIE, headers.get(JsonKey.COOKIE));
     return headerMap;
   }
+  private static Map<String, String> getContentStateReadHeaders(Map<String, String> headers) {
+    Map<String, String> headerMap = new HashMap<>();
+    headerMap.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+    headerMap.put(HttpHeaders.CONNECTION, "Keep-Alive");
+    return headerMap;
+  }
   /*public static Future<Map<String, Object>> searchContent(
           RequestContext requestContext, String urlQueryString, String queryRequestBody, Map<String, String> headers, ExecutionContextExecutor ec) {
     return searchContent(requestContext,null, queryRequestBody, headers, ec);
@@ -191,6 +197,43 @@ public class ContentSearchUtil {
       }
     } catch (Exception e) {
       logger.error(requestContext, "Exception occurred while calling composite search service :: ", e);
+      return new HashMap<>();
+    }
+  }
+
+  public static Map<String, Object> getScore(
+          RequestContext requestContext, String queryRequestBody, Map<String, String> headers) {
+    Unirest.clearDefaultHeaders();
+    String baseUrl = System.getenv(JsonKey.CONTENT_STATE_READ_BASE_URL);
+    String searchPath = System.getenv(JsonKey.CONTENT_STATE_READ_PATH);
+    if (StringUtils.isBlank(baseUrl))
+      baseUrl = PropertiesCache.getInstance().getProperty(JsonKey.CONTENT_STATE_READ_BASE_URL);
+    if (StringUtils.isBlank(searchPath))
+      searchPath = PropertiesCache.getInstance().getProperty(JsonKey.CONTENT_STATE_READ_PATH);
+    String contentStateReadURL = baseUrl + searchPath;
+
+    logger.info(requestContext,"contentStateReadURL is "+contentStateReadURL);
+    BaseRequest request =
+            Unirest.post(contentStateReadURL).headers(getContentStateReadHeaders(headers)).body(queryRequestBody);
+    try {
+      logger.info(requestContext,request.asJson().toString());
+    } catch (UnirestException e) {
+      throw new RuntimeException(e);
+    }
+    try {
+      HttpResponse<JsonNode> response = RestUtil.execute(request);
+      if (RestUtil.isSuccessful(response)) {
+        JSONObject result = response.getBody().getObject().getJSONObject("result");
+        Map<String, Object> resultMap = jsonToMap(result);
+        List<Map<String,Object>> contents = (List<Map<String, Object>>) resultMap.get(JsonKey.CONTENT_LIST);
+        resultMap.put(JsonKey.CONTENTS, contents);
+        return resultMap;
+      } else {
+        logger.info(requestContext, "Content state read returned failed response :: " + response.getStatus());
+        return new HashMap<>();
+      }
+    } catch (Exception e) {
+      logger.error(requestContext, "Exception occurred while calling content state read API :: ", e);
       return new HashMap<>();
     }
   }

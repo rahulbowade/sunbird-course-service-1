@@ -637,10 +637,12 @@ public final class JsonKey {
   public static final String SOFT_CONSTRAINTS = "softConstraints";
   public static final String SUNBIRD_USER_ORG_API_BASE_URL = "sunbird_user_org_api_base_url";
   public static final String SUNBIRD_API_MGR_BASE_URL = "sunbird_api_mgr_base_url";
+  public static final String CONTENT_STATE_READ_BASE_URL = "content_state_read_base_url";
   public static final String SUNBIRD_AUTHORIZATION = "sunbird_authorization";
   public static final String SUNBIRD_CS_BASE_URL = "sunbird_cs_base_url";
   public static final String SUNBIRD_CS_SEARCH_PATH = "sunbird_cs_search_path";
   public static final String SUNBIRD_CS_COMPOSITE_SEARCH_PATH = "sunbird_cs_composite_search_path";
+  public static final String CONTENT_STATE_READ_PATH = "content_state_read_path";
   public static final String SUNBIRD_LMS_TELEMETRY = "Sunbird_LMS_Telemetry";
   public static final String SUNBIRD_LMS_AUTHORIZATION = "sunbird_authorization";
   public static final String ETS = "ets";

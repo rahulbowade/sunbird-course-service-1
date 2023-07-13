@@ -156,6 +156,8 @@ public final class JsonKey {
   public static final String COURSE_NAME = "courseName";
 
   public static final String COURSENAME = "coursename";
+  public static final String NODALNAME = "nodalname";
+  public static final String SCORE = "score";
   public static final String COURSE_PROGRESS = "progress";
   public static final String COURSE_PUBLISHED_STATUS = "course_publish_status";
   public static final String COURSE_VERSION = "courseVersion";
@@ -1038,5 +1040,6 @@ public final class JsonKey {
   public static final String ASSESS_REQ_BDY ="ASSESS_REQ_BODY";
   public static final String QUESTIONS = "questions";
   public static final String ASSESSMENTS="assessments";
+  public static final String DEFAULT_STUDENT_ROLE = "student";
   private JsonKey() {}
 }

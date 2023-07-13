@@ -19,13 +19,24 @@ public class CourseUser implements Serializable {
 
   private String username;
 
-  private String name;
+  private String nodalname;
+  private String coursename;
 
   private int status;
 
   private Date enrolledDate;
 
   private Map<String,String> comment;
+
+  private String score;
+
+  public String getScore() {
+    return score;
+  }
+
+  public void setScore(String score) {
+    this.score = score;
+  }
 
   public Map<String, String> getComment() {
     return comment;
@@ -60,12 +71,20 @@ public class CourseUser implements Serializable {
     this.username = username;
   }
 
-  public String getName() {
-    return name;
+  public String getNodalname() {
+    return nodalname;
   }
 
-  public void setName(String name) {
-    this.name = name;
+  public void setNodalname(String nodalname) {
+    this.nodalname = nodalname;
+  }
+
+  public String getCoursename() {
+    return coursename;
+  }
+
+  public void setCoursename(String coursename) {
+    this.coursename = coursename;
   }
 
   public int getStatus() {

@@ -19,11 +19,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
 public class BatchUserDaoImpl implements BatchUserDao {
 
 
     private CassandraOperation cassandraOperation = ServiceFactory.getInstance();
     private Util.DbInfo batchUserDb = Util.dbInfoMap.get(JsonKey.BATCH_USER_DB);
+
     private ObjectMapper mapper = new ObjectMapper();
 
     public LoggerUtil logger = new LoggerUtil(this.getClass());
@@ -52,15 +54,15 @@ public class BatchUserDaoImpl implements BatchUserDao {
         Map<String, Object> search = (Map<String, Object>)request.getRequest().getOrDefault(JsonKey.FILTERS,"");
         logger.info(null, "search : " + search);
         search.put(JsonKey.BATCH_ID,batchId);
-        Response response =
+        Response batchUserResponse =
                 cassandraOperation.getRecordByIndexedPropertyPagination(batchUserDb.getKeySpace(), batchUserDb.getTableName(),search,request);
-        logger.info(null, "response from cassandraOperation : " + response);
         List<Map<String, Object>> batchUserList =
-                (List<Map<String, Object>>) response.get(JsonKey.RESPONSE);
+                (List<Map<String, Object>>) batchUserResponse.get(JsonKey.RESPONSE);
+
         if (CollectionUtils.isEmpty(batchUserList)) {
             return null;
         }
-        logger.info(null, "batchUserList : " + batchUserList);
+        logger.debug(null, "batchUserList : " + batchUserList);
         return batchUserList;
 
     }
@@ -93,8 +95,10 @@ public class BatchUserDaoImpl implements BatchUserDao {
                 requestContext, batchUserDb.getKeySpace(), batchUserDb.getTableName(), attributeMap, primaryKey);
     }
 
-    public Response delete(RequestContext requestContext, String batchid) {
+    public Response delete(RequestContext requestContext, String batchid,String userid) {
+        List<String> list=new ArrayList<>();
+        list.add(batchid); list.add(userid);
         return cassandraOperation.deleteRecordBatchId(
-                batchUserDb.getKeySpace(), batchUserDb.getTableName(), batchid, requestContext);
+                batchUserDb.getKeySpace(), batchUserDb.getTableName(), list, requestContext);
     }
 }

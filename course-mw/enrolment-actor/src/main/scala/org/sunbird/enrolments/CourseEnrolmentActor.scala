@@ -165,8 +165,8 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     val batchUserData: BatchUser = batchUserDao.readById(request.getRequestContext, batchId,userId)
     logger.info(request.getRequestContext, "fetching data in course_user_mapping and batch_user_mapping")
     if (courseUserData.getUserId != null || batchUserData.getUserId != null) {
-      batchUserDao.delete(request.getRequestContext, batchId)
-      courseUserDao.delete(request.getRequestContext, courseId)
+      batchUserDao.delete(request.getRequestContext, batchId, userId)
+      courseUserDao.delete(request.getRequestContext, courseId, userId)
     }
 
   }
@@ -447,13 +447,33 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
       }else{
         userName=firstname;
       }
-
     }
     val comment: util.Map[String,String] = request.get(JsonKey.COMMENT).asInstanceOf[util.Map[String,String]]
-    val dataBatch: util.Map[String, AnyRef] = createBatchUserMapping(batchId, userId, batchData, userName, comment)
-    val dataCourse: util.Map[String, AnyRef] = createCourseUserMapping(courseId, userId, batchData, userName, comment)
+    val dataBatch: util.Map[String, AnyRef] = createBatchUserMapping(batchId, userId, batchData, userName, getNodalName(request), comment)
+    val dataCourse: util.Map[String, AnyRef] = createCourseUserMapping(courseId, userId, batchData, userName, getNodalName(request), comment)
     upsertCourseBatchUser(userId, batchId, dataBatch, courseId, dataCourse, (null == courseUserData || null == batchUserData), request.getRequestContext)
   }
+  private def getNodalName(request:Request):String={
+    var nodalName:String=null
+    val userRole=getUserRole(request.getContext.getOrDefault(JsonKey.REQUESTED_BY, "").asInstanceOf[String])
+    if(userRole.equalsIgnoreCase(JsonKey.NODAL_OFFICER)){
+      val nodalData: util.Map[String, AnyRef] = userOrgService.getUserById(request.getContext.getOrDefault(JsonKey.REQUESTED_BY, "").asInstanceOf[String], request.getContext.getOrDefault(JsonKey.X_AUTH_TOKEN, "").asInstanceOf[String])
+      logger.info(request.getRequestContext, "checking the condition if nodalId is exist fetch the firstname and lastname from userData")
+      if (request.getContext.get(JsonKey.REQUESTED_BY).asInstanceOf[String].equalsIgnoreCase(nodalData.get(JsonKey.USER_ID).toString)) {
+        var firstname = nodalData.get(JsonKey.FIRST_NAME).toString
+        val lastNameValue = nodalData.get(JsonKey.LAST_NAME)
+        val lastName = if (lastNameValue != null) lastNameValue.toString else ""
+        if (!lastName.isBlank) {
+          nodalName = firstname.concat(" ").concat(lastName)
+        } else {
+          nodalName = firstname;
+        }
+    }
+    }
+    nodalName
+  }
+
+
 
   def upsertEnrollment(userId: String, courseId: String, batchId: String, data: java.util.Map[String, AnyRef], isNew: Boolean, requestContext: RequestContext): Unit = {
     val dataMap = CassandraUtil.changeCassandraColumnMapping(data)
@@ -529,7 +549,7 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
       }
     }
 
-  def createBatchUserMapping(batchId: String, userId: String, batchData: CourseBatch, userName: String, comment: util.Map[String,String]): java.util.Map[String, AnyRef] =
+  def createBatchUserMapping(batchId: String, userId: String, batchData: CourseBatch, userName: String, nodalName: String, comment: util.Map[String,String]): java.util.Map[String, AnyRef] =
     new java.util.HashMap[String, AnyRef]() {
       var courseName: String = null
       if (batchId.equalsIgnoreCase(batchData.getBatchId)) {
@@ -541,13 +561,15 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
         put(JsonKey.USER_ID, userId)
         put(JsonKey.USER_NAME, userName)
         put(JsonKey.COURSENAME, courseName)
+        put(JsonKey.NODALNAME, nodalName)
+        put(JsonKey.SCORE,null)
         put(JsonKey.ENROLL_DATE, ProjectUtil.getTimeStamp)
         put(JsonKey.STATUS, ProjectUtil.ProgressStatus.NOT_STARTED.getValue.asInstanceOf[AnyRef])
         put(JsonKey.COMMENT, comment)
       }
     }
 
-  def createCourseUserMapping(courseId: String, userId: String, batchData: CourseBatch, userName: String, comment: util.Map[String,String]): java.util.Map[String, AnyRef] =
+  def createCourseUserMapping(courseId: String, userId: String, batchData: CourseBatch, userName: String,nodalName:String, comment: util.Map[String,String]): java.util.Map[String, AnyRef] =
     new java.util.HashMap[String, AnyRef]() {
       var courseName: String = null
       if (courseId.equalsIgnoreCase(batchData.getCourseId)) {
@@ -558,6 +580,8 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
         put(JsonKey.USER_ID, userId)
         put(JsonKey.USER_NAME, userName)
         put(JsonKey.COURSENAME, courseName)
+        put(JsonKey.NODALNAME, nodalName)
+        put(JsonKey.SCORE,null)
         put(JsonKey.ENROLL_DATE, ProjectUtil.getTimeStamp)
         put(JsonKey.STATUS, ProjectUtil.ProgressStatus.NOT_STARTED.getValue.asInstanceOf[AnyRef])
         put(JsonKey.COMMENT, comment)
@@ -805,7 +829,9 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     if (filteredRoles.nonEmpty) {
       filteredRoles.head
     } else {
-      throw new NoSuchElementException(s"No matching role found for user ID: $userid")
+      //throw new NoSuchElementException(s"No matching role found for user ID: $userid")
+      //returning default role as STUDENT
+      JsonKey.DEFAULT_STUDENT_ROLE
     }
   }
 

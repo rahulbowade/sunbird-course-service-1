@@ -10,7 +10,12 @@ import com.datastax.driver.core.querybuilder.Select.Builder;
 import com.datastax.driver.core.querybuilder.Select.Where;
 import com.datastax.driver.core.querybuilder.Update.Assignments;
 import com.google.common.util.concurrent.FutureCallback;
+
+import java.sql.Timestamp;
+import java.text.DateFormat;
 import java.text.MessageFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.Map.Entry;
 import org.apache.commons.collections.CollectionUtils;
@@ -587,7 +592,6 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
         if(params.containsKey(JsonKey.SEARCH)) {
           isSearch = (Boolean) params.getOrDefault(JsonKey.SEARCH, false);
           if(params.containsKey(JsonKey.BATCH_ID))
-          params.remove(JsonKey.BATCH_ID);
           params.remove(JsonKey.SEARCH);
         }
         Select.Where where = selectQuery.where();
@@ -599,7 +603,7 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
               if (((List) value).size() > 0) {
                 where = createQueryForList(request, where, filter);
               }
-            }else if(isSearch) {
+            }else if(isSearch && (!filter.getKey().equalsIgnoreCase(JsonKey.BATCH_ID))) {
               logger.debug(null,"search param "+filter.getKey());
               String option = filter.getValue().toString();
               if (option.length() >=1) {
@@ -607,6 +611,18 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
               }
               option = option.replace("\\", "\\\\").replace("_", "\\_");
               where = where.and(QueryBuilder.like(filter.getKey(), option));
+            } else if(filter.getKey().equalsIgnoreCase(JsonKey.ENROLL_DATE)){
+              final String OLD_FORMAT = "yyyy-MM-dd";
+             final String NEW_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
+              DateFormat formatter = new SimpleDateFormat(OLD_FORMAT);
+              Date strDate = formatter.parse(filter.getValue().toString());
+              ((SimpleDateFormat) formatter).applyPattern(NEW_FORMAT);
+              String newDateString = formatter.format(strDate);
+              Timestamp currenttime=Timestamp.valueOf(newDateString);
+              LocalDateTime nextDay= currenttime.toLocalDateTime().plusDays(1);
+              where = where.and(QueryBuilder.gte(filter.getKey(), currenttime));
+              where = where.and(QueryBuilder.lte(filter.getKey(), Timestamp.valueOf(nextDay)));
+
             } else {
               where = where.and(QueryBuilder.eq(filter.getKey(), filter.getValue()));
             }
@@ -902,17 +918,17 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
     return response;
   }
 
-  public Response deleteRecordBatchId(String keyspaceName, String tableName, String identifier, RequestContext requestContext) {
+  public Response deleteRecordBatchId(String keyspaceName, String tableName, List<String> identifier, RequestContext requestContext) {
     long startTime = System.currentTimeMillis();
     logger.info(requestContext,
             "Cassandra Service deleteRecord method started at ==" + startTime);
     Response response = new Response();
     try {
-      Delete.Where delete =
-              QueryBuilder.delete()
-                      .from(keyspaceName, tableName)
-                      .where(eq(Constants.BATCHID, identifier));
-      logger.debug(requestContext, delete.getQueryString());
+      Delete delete = QueryBuilder.delete().from(keyspaceName, tableName);
+      Delete.Where deleteWhere = delete.where();
+      deleteWhere.and(QueryBuilder.eq(JsonKey.USER_ID_KEY, identifier.get(1)))
+              .and(QueryBuilder.eq(JsonKey.BATCH_ID_KEY, identifier.get(0)));
+      logger.debug(requestContext, deleteWhere.getQueryString());
       connectionManager.getSession(keyspaceName).execute(delete);
       response.put(Constants.RESPONSE, Constants.SUCCESS);
     } catch (Exception e) {
@@ -927,17 +943,17 @@ public abstract class CassandraOperationImpl implements CassandraOperation {
   }
 
 
-  public Response deleteRecordCourseId(String keyspaceName, String tableName, String identifier, RequestContext requestContext) {
+  public Response deleteRecordCourseId(String keyspaceName, String tableName, List<String> identifier, RequestContext requestContext) {
     long startTime = System.currentTimeMillis();
     logger.info(requestContext,
             "Cassandra Service deleteRecord method started at ==" + startTime);
     Response response = new Response();
     try {
-      Delete.Where delete =
-              QueryBuilder.delete()
-                      .from(keyspaceName, tableName)
-                      .where(eq(Constants.COURSEID, identifier));
-      logger.debug(requestContext, delete.getQueryString());
+      Delete delete = QueryBuilder.delete().from(keyspaceName, tableName);
+      Delete.Where deleteWhere = delete.where();
+      deleteWhere.and(QueryBuilder.eq(JsonKey.USER_ID_KEY, identifier.get(1)))
+              .and(QueryBuilder.eq(JsonKey.COURSE_ID_KEY, identifier.get(0)));
+      logger.debug(requestContext, deleteWhere.getQueryString());
       connectionManager.getSession(keyspaceName).execute(delete);
       response.put(Constants.RESPONSE, Constants.SUCCESS);
     } catch (Exception e) {

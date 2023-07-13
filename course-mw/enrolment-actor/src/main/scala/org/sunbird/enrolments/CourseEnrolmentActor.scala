@@ -360,19 +360,18 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     }
     new ObjectMapper().writeValueAsString(searchRequest)
   }
-  def contentStateReadRequest(request: Request): String = {
+  def contentStateReadRequest(request: Request, userId: String): String = {
     logger.info(request.getRequestContext, "Inside the contentStateReadRequest")
-    val fields = Array(request.getRequest.getOrDefault(JsonKey.PROGRESS, "progress"),
-      request.getRequest.getOrDefault(JsonKey.ASSESSMENT_SCORE, "score")).toList
+    val fields = Array(request.getRequest.getOrDefault(JsonKey.ASSESSMENT_SCORE, "score"))
 
-    val searchRequest: java.util.Map[String, java.util.Map[String, AnyRef]] = new java.util.HashMap[String, java.util.Map[String, AnyRef]]() {
+    val searchRequest: java.util.Map[String, AnyRef] = new java.util.HashMap[String, AnyRef]() {
       {
         put(JsonKey.REQUEST, new java.util.HashMap[String, AnyRef]() {
           {
-            put(JsonKey.FIELDS, fields)
-            put(JsonKey.USER_ID, request.getRequest.getOrDefault(JsonKey.USER_ID, ""))
+            put(JsonKey.USER_ID, userId)
             put(JsonKey.COURSE_ID, request.getRequest.getOrDefault(JsonKey.COURSE_ID, ""))
             put(JsonKey.BATCH_ID, request.getRequest.getOrDefault(JsonKey.BATCH_ID, ""))
+            put(JsonKey.FIELDS, fields)
           }
         })
       }
@@ -696,15 +695,16 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
          val statusCode: Integer = request.getOrDefault(JsonKey.STATUS, 0).asInstanceOf[Integer]
          val nodalFeedback:util.Map[String,String]=new util.HashMap[String,String]()
          nodalFeedback.put(getUserRole(request.getContext.getOrDefault(JsonKey.REQUESTED_BY, "").asInstanceOf[String]),comment)
-         val requestBody = contentStateReadRequest(request)
-         val score: util.Map[String, AnyRef] = ContentSearchUtil.getScore(request.getRequestContext, requestBody, request.getContext.get(JsonKey.HEADER).asInstanceOf[java.util.Map[String, String]])
          (0 until (userIds.size())).foreach(x => {
-           EvalDataAfterIssueCertificate(request, courseId, userIds, batchId, statusCode, nodalFeedback, x)
+           val requestBody = contentStateReadRequest(request, userIds.get(x))
+           val scoreContent: util.List[util.Map[String, AnyRef]] = ContentSearchUtil.getScore(request.getRequestContext, requestBody, request.getContext.get(JsonKey.HEADER).asInstanceOf[java.util.Map[String, String]])
+           val score = String.valueOf(scoreContent.get(0).get(JsonKey.TOTAL_SCORE))
+           EvalDataAfterIssueCertificate(request, courseId, userIds, batchId, statusCode, nodalFeedback, x, score)
          })
          sender().tell(successResponse(), self)
     }
 
-  private def EvalDataAfterIssueCertificate(request: Request, courseId: String, userIds: util.List[String], batchId: String, statusCode: Integer, nodalFeedback: util.Map[String, String], x: Int) = {
+  private def EvalDataAfterIssueCertificate(request: Request, courseId: String, userIds: util.List[String], batchId: String, statusCode: Integer, nodalFeedback: util.Map[String, String], x: Int, score: String) = {
     val enrolmentData = userCoursesDao.read(request.getRequestContext, userIds.get(x.toInt), courseId, batchId)
     val batchUserData = batchUserDao.readById(request.getRequestContext, batchId, userIds.get(x))
     logger.info(null, "existing comment" + enrolmentData.getComment)
@@ -724,6 +724,7 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     } else {
       saveUserEnrolmentComment(request, courseId, userIds, batchId, statusCode, x, nodalFeedback, nodalFeedback)
     }
+    saveScore(request, courseId, userIds, batchId, x, score)
   }
 
   private def saveUserEnrolmentComment(request: Request, courseId: String, userIds: util.List[String], batchId: String, statusCode: Integer, x: Int,
@@ -735,6 +736,11 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     val batchdata = CassandraUtil.changeCassandraColumnMapping(batchMap)
     batchUserDao.update(request.getRequestContext, batchId, userIds.get(x.toInt), batchdata)
     userCoursesDao.updateV2(request.getRequestContext, userIds.get(x), courseId, batchId, data)
+  }
+  private def saveScore(request: Request, courseId: String, userIds: util.List[String], batchId: String,x: Int,score:String) = {
+    val map: util.HashMap[String, Object] = createScoreRequestMap(score)
+    val data = CassandraUtil.changeCassandraColumnMapping(map)
+    batchUserDao.update(request.getRequestContext, batchId, userIds.get(x.toInt), data)
   }
 
   def notIssueCertificate(request: Request): Unit = {
@@ -779,6 +785,12 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     val map = new util.HashMap[String, Object]()
     map.put(JsonKey.STATUS, statusCode.asInstanceOf[AnyRef])
     map.put(JsonKey.COMMENT, comment.asInstanceOf[util.Map[String, String]])
+    map
+  }
+
+  private def createScoreRequestMap(score: String) = {
+    val map = new util.HashMap[String, Object]()
+    map.put(JsonKey.ASSESSMENT_SCORE, score)
     map
   }
 

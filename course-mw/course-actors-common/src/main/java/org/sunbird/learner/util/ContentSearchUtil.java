@@ -58,6 +58,7 @@ public class ContentSearchUtil {
   }
   private static Map<String, String> getContentStateReadHeaders(Map<String, String> headers) {
     Map<String, String> headerMap = new HashMap<>();
+    headerMap.put(HttpHeaders.AUTHORIZATION, JsonKey.BEARER + System.getenv(JsonKey.SUNBIRD_AUTHORIZATION));
     headerMap.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
     headerMap.put(HttpHeaders.CONNECTION, "Keep-Alive");
     return headerMap;
@@ -201,7 +202,7 @@ public class ContentSearchUtil {
     }
   }
 
-  public static Map<String, Object> getScore(
+  public static List<Map<String,Object>> getScore(
           RequestContext requestContext, String queryRequestBody, Map<String, String> headers) {
     Unirest.clearDefaultHeaders();
     String baseUrl = System.getenv(JsonKey.CONTENT_STATE_READ_BASE_URL);
@@ -226,15 +227,15 @@ public class ContentSearchUtil {
         JSONObject result = response.getBody().getObject().getJSONObject("result");
         Map<String, Object> resultMap = jsonToMap(result);
         List<Map<String,Object>> contents = (List<Map<String, Object>>) resultMap.get(JsonKey.CONTENT_LIST);
-        resultMap.put(JsonKey.CONTENTS, contents);
-        return resultMap;
+        List<Map<String,Object>> scoreContents = (List<Map<String, Object>>) contents.get(0).get(JsonKey.ASSESSMENT_SCORE);
+        return scoreContents;
       } else {
         logger.info(requestContext, "Content state read returned failed response :: " + response.getStatus());
-        return new HashMap<>();
+        return new ArrayList<>();
       }
     } catch (Exception e) {
       logger.error(requestContext, "Exception occurred while calling content state read API :: ", e);
-      return new HashMap<>();
+      return new ArrayList<>();
     }
   }
 

@@ -570,6 +570,7 @@ public final class JsonKey {
   public static final String THEME = "theme";
   public static final String THUMBNAIL = "thumbnail";
   public static final String TIME_TAKEN = "timeTaken";
+  public static final String TOTAL_SCORE = "totalScore";
   public static final String TIME_UNIT = "time_unit";
   public static final String TITLE = "title";
   public static final String TO = "to";

@@ -101,9 +101,9 @@ public class CompetencyPassbookParser implements PassbookParser {
         if (StringUtils.isBlank(typeName)) {
             missingAttributes.add(JsonKey.TYPE_NAME);
         } else {
-            if (!(ProjectUtil.getConfigValue("user.passbook.supported.typename")).contains(typeName)) {
+            if (!(ProjectUtil.getConfigValue("passbook_types")).contains(typeName)) {
                 errList.add(String.format("Invalid TypeName value. Supported TypeNames are %s",
-                        (ProjectUtil.getConfigValue("user.passbook.supported.typename"))));
+                        (ProjectUtil.getConfigValue("passbook_types"))));
             }
         }
 

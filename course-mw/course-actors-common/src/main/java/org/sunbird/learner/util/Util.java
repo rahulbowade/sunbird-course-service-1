@@ -5,6 +5,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.search.sort.SortOrder;
 import org.sunbird.common.models.util.JsonKey;
 import org.sunbird.common.models.util.LoggerUtil;
+import org.sunbird.common.models.util.ProjectUtil;
 import org.sunbird.common.request.Request;
 import org.sunbird.dto.SearchDTO;
 import org.sunbird.helper.CassandraConnectionManager;
@@ -70,6 +71,8 @@ public final class Util {
             JsonKey.ASSESSMENT_AGGREGATOR_DB, getDbInfoObject(COURSE_KEY_SPACE_NAME, "assessment_aggregator"));
     dbInfoMap.put(JsonKey.USER_ENROLMENTS_DB, getDbInfoObject(COURSE_KEY_SPACE_NAME, "user_enrolments"));
     dbInfoMap.put(JsonKey.USER_ROLES_DB, getDbInfoObject(KEY_SPACE_NAME, "user_roles"));
+    dbInfoMap.put(JsonKey.PASSBOOK_DB, getDbInfoObject(COURSE_KEY_SPACE_NAME, "user_passbook"));
+
   }
 
   /**

@@ -16,6 +16,7 @@ import org.sunbird.common.models.util._
 import org.sunbird.common.request.{Request, RequestContext}
 import org.sunbird.common.responsecode.ResponseCode
 import org.sunbird.helper.ServiceFactory
+import org.sunbird.keys.SunbirdKey
 import org.sunbird.learner.actors.coursebatch.dao.impl.{BatchUserDaoImpl, CourseBatchDaoImpl, CourseUserDaoImpl, UserCoursesDaoImpl}
 import org.sunbird.learner.actors.coursebatch.dao.{BatchUserDao, CourseBatchDao, CourseUserDao, UserCoursesDao}
 import org.sunbird.learner.actors.coursebatch.service.UserCoursesService
@@ -673,6 +674,25 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     resp
   }
 
+  private def getScoreDetails(batchId: String, userIds: util.List[String], courseId: String, request: Request, x: Int) = {
+    val scoreListResponse = groupDao.readEntries("Course", util.Arrays.asList(userIds.get(x)), util.Arrays.asList(courseId), request.getRequestContext)
+    val scoreList: java.util.List[java.util.Map[String, AnyRef]] = scoreListResponse.get(SunbirdKey.RESPONSE).asInstanceOf[java.util.List[java.util.Map[String, AnyRef]]]
+    val matchedScore = scoreList.find(score =>
+      score.get("activity_id") == courseId &&
+        score.get("context_id").toString.replaceFirst("cb:", "") == batchId &&
+        score.get("user_id") == userIds.get(x)
+    )
+    val batchMap = new util.HashMap[String, Object]()
+    batchMap.put(JsonKey.USER_ID, userIds.get(x))
+    batchMap.put(JsonKey.BATCH_ID, batchId)
+    val scoreFromAggregates: java.util.Map[String, Double] = matchedScore.get("aggregates").asInstanceOf[java.util.Map[String, Double]]
+    val keyStartingWithScore = scoreFromAggregates.keys.find(_.startsWith("score:"))
+    val scoreValue = scoreFromAggregates.get(keyStartingWithScore.get).toString
+    batchMap.put(JsonKey.SCORE, scoreValue.asInstanceOf[AnyRef])
+    val batchdata = CassandraUtil.changeCassandraColumnMapping(batchMap)
+    batchUserDao.update(request.getRequestContext, batchId, userIds.get(x), batchdata)
+  }
+
   // TODO: to be removed once all are in scala.
   def setDao(courseDao: CourseBatchDao, userDao: UserCoursesDao, groupDao: GroupDaoImpl) = {
     courseBatchDao = courseDao
@@ -729,7 +749,8 @@ class CourseEnrolmentActor @Inject()(@Named("course-batch-notification-actor") c
     } else {
       saveUserEnrolmentComment(request, courseId, userIds, batchId, statusCode, x, nodalFeedback, nodalFeedback)
     }
-  }
+    getScoreDetails(batchId,userIds,courseId,request,x)
+    }
 
   private def saveUserEnrolmentComment(request: Request, courseId: String, userIds: util.List[String], batchId: String, statusCode: Integer, x: Int,
                                        enrolmentDataComment: util.Map[String, String],

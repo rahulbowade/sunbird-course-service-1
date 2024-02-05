@@ -95,8 +95,9 @@ public class CompetencyPassbookParser implements PassbookParser {
         String compUserId = (String) requestBody.get(JsonKey.USER_ID);
         if (StringUtils.isEmpty(compUserId)) {
             missingAttributes.add(JsonKey.USER_ID);
+        }else if(StringUtils.isEmpty(requestedUserId)){
+            requestedUserId = compUserId;
         }
-
         String typeName = (String) requestBody.get(JsonKey.TYPE_NAME);
         if (StringUtils.isBlank(typeName)) {
             missingAttributes.add(JsonKey.TYPE_NAME);
